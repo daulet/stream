@@ -1,0 +1,17 @@
+syntax = "proto3";
+
+option go_package = "github.com/daulet/stream";
+
+package stream;
+
+service Transformer {
+  rpc Generate(Request) returns (stream Generation) {}
+}
+
+message Request {
+  string prompt = 1;
+}
+
+message Generation {
+  string token = 1;
+}
