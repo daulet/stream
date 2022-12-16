@@ -11,6 +11,12 @@ import (
 	"google.golang.org/grpc/credentials/insecure"
 )
 
+/*
+TODO: other things to try:
+Transfer Encoding: chunked
+text/event-stream will prefix output with `data:`
+*/
+
 type HttpHandler struct {
 	client pb.TransformerClient
 }
@@ -26,7 +32,9 @@ func NewHttpHandler(addr string) (*HttpHandler, error) {
 }
 
 func (s *HttpHandler) Handle(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Content-Type", "application/x-ndjson")
+	// stream+json works in a browser
+	// x-ndjson will be downloaded as a file in a browser
+	w.Header().Set("Content-Type", "application/stream+json")
 
 	stream, err := s.client.Generate(r.Context(), &pb.Request{})
 	if err != nil {
