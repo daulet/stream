@@ -3,11 +3,13 @@ package main
 import (
 	"context"
 	"encoding/json"
+	"flag"
 	"fmt"
 	"io"
 	"net"
 	"net/http"
 	"sync"
+	"time"
 
 	pb "github.com/daulet/stream/proto"
 	"github.com/daulet/stream/server"
@@ -16,14 +18,51 @@ import (
 )
 
 func main() {
-	if err := stream(8080); err != nil {
-		panic(err)
+	port := flag.Int("port", 8080, "port to listen on")
+	serve := flag.Bool("serve", false, "whether program should serve an external request")
+	flag.Parse()
+
+	var (
+		ctx    context.Context
+		cancel context.CancelFunc
+	)
+	if *serve {
+		ctx, cancel = context.WithTimeout(context.Background(), 10*time.Second)
+	} else {
+		ctx, cancel = context.WithCancel(context.Background())
 	}
+
+	shutdown := make(chan struct{})
+	go func() {
+		defer close(shutdown)
+		if err := stream(ctx, *port); err != nil {
+			panic(err)
+		}
+	}()
+
+	if !*serve {
+		resp, err := http.Get(fmt.Sprintf("http://localhost:%d", *port))
+		if err != nil {
+			panic(err)
+		}
+		dec := json.NewDecoder(resp.Body)
+		for {
+			msg := &server.Message{}
+			if err := dec.Decode(msg); err != nil {
+				if err == io.EOF {
+					break
+				}
+				panic(err)
+			}
+			fmt.Println(msg.Token)
+		}
+		cancel()
+	}
+
+	<-shutdown
 }
 
-func stream(port int) error {
-	ctx := context.Background()
-
+func stream(ctx context.Context, port int) error {
 	var wg sync.WaitGroup
 	defer wg.Wait()
 
@@ -64,20 +103,7 @@ func stream(port int) error {
 		}
 	}()
 
-	resp, err := http.Get(fmt.Sprintf("http://localhost:%d", port))
-	if err != nil {
-		return err
-	}
-	dec := json.NewDecoder(resp.Body)
-	for {
-		msg := &server.Message{}
-		if err := dec.Decode(msg); err != nil {
-			if err == io.EOF {
-				break
-			}
-			return err
-		}
-		fmt.Println(msg.Token)
+	for range ctx.Done() {
 	}
 	return nil
 }
