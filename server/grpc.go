@@ -1,6 +1,10 @@
 package server
 
-import pb "github.com/daulet/stream/stream"
+import (
+	"time"
+
+	pb "github.com/daulet/stream/proto"
+)
 
 const (
 	alphabet            = "abcdefghijklmnopqrstuvwxyz"
@@ -20,6 +24,7 @@ func (s *Grpc) Generate(_ *pb.Request, stream pb.Transformer_GenerateServer) err
 		}); err != nil {
 			return err
 		}
+		<-time.After(20 * time.Millisecond)
 	}
 	return nil
 }
