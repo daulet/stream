@@ -46,6 +46,7 @@ func main() {
 			panic(err)
 		}
 		dec := json.NewDecoder(resp.Body)
+		defer resp.Body.Close()
 		for {
 			msg := &server.Message{}
 			if err := dec.Decode(msg); err != nil {
@@ -66,7 +67,9 @@ func stream(ctx context.Context, port int) error {
 	var wg sync.WaitGroup
 	defer wg.Wait()
 
-	grpcSrv := grpc.NewServer()
+	grpcSrv := grpc.NewServer(
+		grpc.ChainStreamInterceptor(server.StreamInterceptor()),
+	)
 	defer grpcSrv.Stop()
 
 	wg.Add(1)
